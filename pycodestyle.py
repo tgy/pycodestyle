@@ -397,10 +397,10 @@ def missing_whitespace(logical_line):
             yield index, "E231 missing whitespace after '%s'" % char
 
 
-def indentation(logical_line, previous_logical, indent_char, indent_level,
-                previous_indent_level, indent_size, indent_size_str):
-    r"""
-    Use indent_size (usually 4) spaces per indentation level.
+def indentation(logical_line, previous_logical, indent_char,
+                indent_level, previous_indent_level,
+                indent_size):
+    r"""Use indent_size (PEP says 4) spaces per indentation level.
 
     For really old code that you don't want to mess up, you can continue to
     use 8-space tabs.
@@ -422,7 +422,7 @@ def indentation(logical_line, previous_logical, indent_char, indent_level,
     tmpl = "E11%d %s" if logical_line else "E11%d %s (comment)"
     if indent_level % indent_size:
         yield 0, tmpl % (1 + c,
-                         "indentation is not a multiple of " + indent_size_str)
+                         "indentation is not a multiple of %d" % indent_size)
     indent_expect = previous_logical.endswith(':')
     if indent_expect and indent_level <= previous_indent_level:
         yield 0, tmpl % (2 + c, "expected an indented block")
@@ -431,8 +431,7 @@ def indentation(logical_line, previous_logical, indent_char, indent_level,
 
 
 def continued_indentation(logical_line, tokens, indent_level, hang_closing,
-                          indent_char, noqa, verbose, indent_size,
-                          indent_size_str):
+                          indent_char, indent_size, noqa, verbose):
     r"""Continuation lines indentation.
 
     Continuation lines should align wrapped elements either vertically
@@ -471,7 +470,8 @@ def continued_indentation(logical_line, tokens, indent_level, hang_closing,
     indent_next = logical_line.endswith(':')
 
     row = depth = 0
-    valid_hangs = (4,) if indent_char != '\t' else (4, 8)
+    valid_hangs = (indent_size,) if indent_char != '\t' \
+        else (indent_size, indent_size * 2)
     # remember how many brackets were opened on each line
     parens = [0] * nrows
     # relative indents of physical lines
@@ -535,8 +535,8 @@ def continued_indentation(logical_line, tokens, indent_level, hang_closing,
                     # visual indent is broken
                     yield (start, "E128 continuation line "
                            "under-indented for visual indent")
-            elif (hanging_indent or
-                  (indent_next and rel_indent[row] == 2 ** indent_size)):
+            elif hanging_indent or (indent_next and
+                                    rel_indent[row] == 2 * indent_size):
                 # hanging indent is verified
                 if close_bracket and not hang_closing:
                     yield (start, "E123 closing bracket does not match "
@@ -558,7 +558,7 @@ def continued_indentation(logical_line, tokens, indent_level, hang_closing,
                     error = "E131", "unaligned for hanging indent"
                 else:
                     hangs[depth] = hang
-                    if hang > 2 ** indent_size:
+                    if hang > indent_size:
                         error = "E126", "over-indented for hanging indent"
                     else:
                         error = "E121", "under-indented for hanging indent"
@@ -1517,6 +1517,7 @@ class Checker(object):
         self._logical_checks = options.logical_checks
         self._ast_checks = options.ast_checks
         self.max_line_length = options.max_line_length
+        self.indent_size = options.indent_size
         self.multiline = False  # in a multiline string?
         self.hang_closing = options.hang_closing
         self.indent_size = options.indent_size
@@ -2082,7 +2083,7 @@ def get_parser(prog='pycodestyle', version=__version__):
                           usage="%prog [options] input ...")
     parser.config_options = [
         'exclude', 'filename', 'select', 'ignore', 'max-line-length',
-        'indent-size', 'hang-closing', 'count', 'format', 'quiet', 'show-pep8',
+        'indent_size', 'hang-closing', 'count', 'format', 'quiet', 'show-pep8',
         'show-source', 'statistics', 'verbose']
     parser.add_option('-v', '--verbose', default=0, action='count',
                       help="print status messages, or debug with -vv")
@@ -2118,6 +2119,10 @@ def get_parser(prog='pycodestyle', version=__version__):
     parser.add_option('--max-line-length', type='int', metavar='n',
                       default=MAX_LINE_LENGTH,
                       help="set maximum allowed line length "
+                           "(default: %default)")
+    parser.add_option('--indent-size', type='int', metavar='n',
+                      default=INDENT_SIZE,
+                      help="set allowed indent size multiple (tab width) "
                            "(default: %default)")
     parser.add_option('--hang-closing', action='store_true',
                       help="hang closing bracket instead of matching "
