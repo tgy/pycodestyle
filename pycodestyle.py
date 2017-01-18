@@ -2120,10 +2120,6 @@ def get_parser(prog='pycodestyle', version=__version__):
                       default=MAX_LINE_LENGTH,
                       help="set maximum allowed line length "
                            "(default: %default)")
-    parser.add_option('--indent-size', type='int', metavar='n',
-                      default=INDENT_SIZE,
-                      help="set how many spaces make up an indent "
-                           "(default: %default)")
     parser.add_option('--hang-closing', action='store_true',
                       help="hang closing bracket instead of matching "
                            "indentation of opening bracket's line")
